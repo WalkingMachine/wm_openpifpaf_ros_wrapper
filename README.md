@@ -1,6 +1,7 @@
 # wm_openpifpaf_ros_wrapper
 ## Description
-ROS wrapper for openpifpaf pose detection
+ROS wrapper for openpifpaf pose detection. We currently use the web server used in openpifpafwebdemo to make http calls. We send the image coming from the throttle down topic /pose_detection/image_in (1 fps).
+
 ## Dependencies
 * https://github.com/vita-epfl/openpifpaf
 * https://github.com/vita-epfl/openpifpafwebdemo
