@@ -18,3 +18,22 @@ ROS wrapper for openpifpaf pose detection. We currently use the web server used 
 * cd in the openpifpafwebdemo
 * ```curl -X POST -H "Content-Type: application/json" --data @test_image3.json http://localhost:5000/process```
 * This will return the pose coordinates based on the image
+## Pose description
+* Nombre de points : 17 [0-16]
+* 0 : nez
+* 1 : oeil gauche
+* 2 : oeil droit
+* 3 : oreille gauche
+* 4 : oreille droite
+* 5 : epaule gauche
+* 6 : epaule droite
+* 7 : coude gauche
+* 8 : coude droit
+* 9 : main gauche
+* 10 : main droite
+* 11 : hanche gauche
+* 12 : hanche droite
+* 13 : genoux gauche
+* 14 : genoux droit
+* 15 : pied gauche
+* 16 : pied droit
