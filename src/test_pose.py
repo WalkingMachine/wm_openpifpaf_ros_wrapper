@@ -59,7 +59,7 @@ class image_converter:
         ts.registerCallback(self.callback)
 
 
-    def callback(self,data,depth):
+    def callback(self,data,depth,rgb_data,depth_data):
 
         height_object = len(self.object)
         width_object = len(self.object[0])
@@ -67,6 +67,24 @@ class image_converter:
         width_eye = len(self.eye[0])
         height_mouth = len(self.mouth)
         width_mouth = len(self.mouth[0])
+
+        try:
+            image = self.bridge.imgmsg_to_cv2(rgb_data, "bgr8")
+            depth_image = self.bridge.imgmsg_to_cv2(depth_data, "passthrough")
+        except CvBridgeError, e:
+            print e
+
+        depth_array = np.array(depth_image, dtype=np.float32)
+        cv2.normalize(depth_array, depth_array, 0, 1, cv2.NORM_MINMAX)
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        upper_bodys = self.body_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=10,
+            minSize=(100, 100),
+            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
+        )
 
         global in_process
         if not in_process:
@@ -319,6 +337,7 @@ class image_converter:
                         cv2.putText(cv_image, str(angleBrasDroit),
                                     (int(j['coordinates'][8][0] * width - 10), int(j['coordinates'][8][1] * height)),
                                     font, 0.45, (0, 255, 0), 1, cv2.LINE_AA)
+
 
 
     # DEBOUT / ASSIS / COUCHE
