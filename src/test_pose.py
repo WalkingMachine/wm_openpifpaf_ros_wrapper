@@ -48,54 +48,44 @@ def getAngle(a, b, c):
 
 class image_converter:
     def __init__(self):
-        self.image_pub = rospy.Publisher("/pose_detection/image", Image)
+        self.image_pub = rospy.Publisher("/pose_detection/image", Image, queue_size=100)
+        self.pointcloud_pub = rospy.Publisher("/pose_detection/pointclouds", PointCloud, queue_size=100)
         in_process = False
         self.bridge = CvBridge()
         self.object = cv2.imread("sims.png", cv2.IMREAD_UNCHANGED)
         self.eye = cv2.imread("eye.png", cv2.IMREAD_UNCHANGED)
         self.mouth = cv2.imread("mouth.png", cv2.IMREAD_UNCHANGED)
-        self.image_sub = rospy.Subscriber("/pose_detection/image_in", Image, self.callback, queue_size=1)
 
-        image_sub = message_filters.Subscriber("/pose_detection/image_in", Image)
-        depth_sub = message_filters.Subscriber("head_xtion/depth/image_raw", Image)
-
-        ts = message_filters.ApproximateTimeSynchronizer([image_sub, depth_sub], 10, 1)
-        ts.registerCallback(self.callback)
+        self._MIN_DIST = rospy.get_param("minimum_distance", 0.2)
+        self._MAX_DIST = rospy.get_param("maximum_distance", 50.0)
+        self._CAM_ANGLE_WIDTH = rospy.get_param("camera_angle_width", 1.012290966)
+        self._CAM_ANGLE_HEIGHT = rospy.get_param("camera_angle_height", 0.785398163397)
 
 
-    def callback(self,data,depth,rgb_data,depth_data):
 
-        height_object = len(self.object)
-        width_object = len(self.object[0])
-        height_eye = len(self.eye)
-        width_eye = len(self.eye[0])
-        height_mouth = len(self.mouth)
-        width_mouth = len(self.mouth[0])
+        self.image_sub = message_filters.Subscriber("/pose_detection/image_in", Image)
+        self.depth_sub = message_filters.Subscriber("camera/depth/image_raw", Image)
+
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 10, 0.1)
+        self.ts.registerCallback(self.callback)
+        rospy.loginfo("pifpaf ready")
+
+    def callback(self, rgb_data, depth_data):
+        rospy.loginfo("synced images!")
 
         try:
-            image = self.bridge.imgmsg_to_cv2(rgb_data, "bgr8")
             depth_image = self.bridge.imgmsg_to_cv2(depth_data, "passthrough")
-        except CvBridgeError, e:
-            print e
+        except CvBridgeError:
+            print(CvBridgeError)
 
         depth_array = np.array(depth_image, dtype=np.float32)
-        cv2.normalize(depth_array, depth_array, 0, 1, cv2.NORM_MINMAX)
-
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        upper_bodys = self.body_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=10,
-            minSize=(100, 100),
-            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
-        )
 
         global in_process
         if not in_process:
             time1 = time.time()
             in_process = True
             try:
-                cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+                cv_image = self.bridge.imgmsg_to_cv2(rgb_data, "bgr8")
             except CvBridgeError as e:
                 print(e)
 
@@ -119,14 +109,14 @@ class image_converter:
             }
 
             json_data = '{"image": "data:image/jpeg;base64,' + str(encoded_string.decode("utf-8")) + '"}'
-            File_object = open("/mnt/ramdisk/test.json", "w+")
+            File_object = open("/tmp/test.json", "w+")
             File_object.write(json_data)
             File_object.close()
 
-            data = open('/mnt/ramdisk/test.json')
+            data = open("/tmp/test.json")
             # data_str =
 
-            response = requests.post('http://localhost:5000/process', headers=headers, data=json_data)
+            response = requests.post('http://localhost:5000/process', headers=headers, data=str(json_data))
 
             # print(response.content[0])
             json_content = json.loads(response.content)
@@ -142,7 +132,10 @@ class image_converter:
             font = cv2.FONT_HERSHEY_SIMPLEX
             person_it = 0
 
-            # for j in json_content:
+            # get pixel to rad ratio
+            xratio = self._CAM_ANGLE_WIDTH / width;
+            yratio = self._CAM_ANGLE_HEIGHT / height;
+
 
             #   it = 0
             #   if j['score'] > score:
@@ -158,56 +151,61 @@ class image_converter:
                 it = 0
                 if j['score'] > score:
 
-                    if j['coordinates'][1][1] > 0:
-                        for line in range(0, height_eye):
-                            for elem in range(0, width_eye):
-                                if self.eye[line, elem][3] != 0:
-                                    if line + int(j['coordinates'][1][1] * height - 30) < height and elem + int(
-                                            j['coordinates'][1][0] * width - 15) < width:
-                                        cv_image[line + int(j['coordinates'][1][1] * height - 30), elem + int(
-                                            j['coordinates'][1][0] * width - 15)][0] = self.eye[line, elem][0]
-                                        cv_image[line + int(j['coordinates'][1][1] * height - 30), elem + int(
-                                            j['coordinates'][1][0] * width - 15)][1] = self.eye[line, elem][1]
-                                        cv_image[line + int(j['coordinates'][1][1] * height - 30), elem + int(
-                                            j['coordinates'][1][0] * width - 15)][2] = self.eye[line, elem][2]
 
-                    if j['coordinates'][2][1] > 0:
-                        for line in range(0, height_eye):
-                            for elem in range(0, width_eye):
-                                if self.eye[line, elem][3] != 0:
-                                    if line + int(j['coordinates'][2][1] * height - 30) < height and elem + int(
-                                            j['coordinates'][2][0] * width - 15) < width:
-                                        cv_image[line + int(j['coordinates'][2][1] * height - 30), elem + int(
-                                            j['coordinates'][2][0] * width - 15)][0] = self.eye[line, elem][0]
-                                        cv_image[line + int(j['coordinates'][2][1] * height - 30), elem + int(
-                                            j['coordinates'][2][0] * width - 15)][1] = self.eye[line, elem][1]
-                                        cv_image[line + int(j['coordinates'][2][1] * height - 30), elem + int(
-                                            j['coordinates'][2][0] * width - 15)][2] = self.eye[line, elem][2]
 
-                    if j['coordinates'][0][1] > 0:
-                        for line in range(0, height_object):
-                            for elem in range(0, width_object):
-                                if self.object[line, elem][3] != 0:
-                                    if line + int(j['coordinates'][0][1] * height - 30) < height and elem + int(
-                                            j['coordinates'][0][0] * width - 15) < width:
-                                        cv_image[line + int(j['coordinates'][0][1] * height - 120), elem + int(
-                                            j['coordinates'][0][0] * width - 15)][0] = self.object[line, elem][0]
-                                        cv_image[line + int(j['coordinates'][0][1] * height - 120), elem + int(
-                                            j['coordinates'][0][0] * width - 15)][1] = self.object[line, elem][1]
-                                        cv_image[line + int(j['coordinates'][0][1] * height - 120), elem + int(
-                                            j['coordinates'][0][0] * width - 15)][2] = self.object[line, elem][2]
-                    else:
-                        for line in range(0, height_object):
-                            for elem in range(0, width_object):
-                                if self.object[line, elem][3] != 0:
-                                    if line + int(j['coordinates'][3][1] * height - 30) < height and elem + int(
-                                            j['coordinates'][3][0] * width - 15) < width:
-                                        cv_image[line + int(j['coordinates'][3][1] * height - 120), elem + int(
-                                            j['coordinates'][3][0] * width - 15)][0] = self.object[line, elem][0]
-                                        cv_image[line + int(j['coordinates'][3][1] * height - 120), elem + int(
-                                            j['coordinates'][3][0] * width - 15)][1] = self.object[line, elem][1]
-                                        cv_image[line + int(j['coordinates'][3][1] * height - 120), elem + int(
-                                            j['coordinates'][3][0] * width - 15)][2] = self.object[line, elem][2]
+
+                    pointList = []
+                    rospy.loginfo("good score")
+                    for point in j['coordinates']:
+
+                        try:
+                            if point[0] != 0 and point[1] != 0:
+                                pixel_x = min(width-1, max(0, int(point[0] * width)))
+                                pixel_y= min(height-1, max(0, int(point[1] * height)))
+                                pixel_depth = depth_array[pixel_y, pixel_x]/1000
+
+                                if pixel_depth != 0:
+                                    # rospy.loginfo("Y: "+str(x))
+                                    # rospy.loginfo("P: "+str(y))
+                                    # rospy.loginfo("D: "+str(z))
+
+                                    # get the IRL angles from the camera center to the point double
+                                    ax = -(pixel_x-width/2)*xratio # pixel to angle
+                                    ay = -(pixel_y-height/2)*yratio # pixel to angle
+
+                                    # Convert the angeles and distance to x y z coordinates
+                                    point = Point32()
+                                    point.z = pixel_depth * math.cos(ax) * math.cos(ay)  # ang to 3D point (rad to m)
+                                    point.x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
+                                    point.y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
+
+                                    pointList.append(point)
+
+                        except:
+                            rospy.logerr("Couldn't get point in z space")
+
+                    pointcloud = PointCloud()
+                    pointcloud.header = rgb_data.header
+                    if len(pointList):
+                        # Calculate the center
+                        meanX = 0
+                        meanY = 0
+                        meanZ = 0
+                        for point in pointList:
+                            meanX += point.x
+                            meanY += point.y
+                            meanZ += point.z
+                        meanX /= len(pointList)
+                        meanY /= len(pointList)
+                        meanZ /= len(pointList)
+
+                        # Eliminate extreme points
+                        for point in pointList:
+                            if  (meanZ-point.z)**2 < 1:
+                                pointcloud.points.append(point)
+
+
+                    self.pointcloud_pub.publish(pointcloud)
 
                     person_it = person_it + 1
                     # cv2.putText(cv_image,"Person " + str(person_it),(int(j['coordinates'][0][0]*width-60),int(j['coordinates'][0][1]*height-60)), font, 1,(0,0,255),1,cv2.LINE_AA)
@@ -235,7 +233,6 @@ class image_converter:
                     # [1] = Y
 
                     # print(i)
-
                     rospy.loginfo("-------------------------------")
                     rospy.loginfo("Personne " + str(person_it))
                     if j['coordinates'][9][1] < j['coordinates'][0][1] and j['coordinates'][9][1] > 0:
@@ -342,37 +339,35 @@ class image_converter:
                                     (int(j['coordinates'][8][0] * width - 10), int(j['coordinates'][8][1] * height)),
                                     font, 0.45, (0, 255, 0), 1, cv2.LINE_AA)
 
+        # DEBOUT / ASSIS / COUCHE
+        # Debout :
 
+        # cv2.putText(cv_image,str(it),(int(i[0]*width),int(i[1]*height)), font, 0.4,(0,255,0),1,cv2.LINE_AA)
+        # cv2.imshow('camera_w_pose',image)
 
-    # DEBOUT / ASSIS / COUCHE
-    # Debout :
+        # cv2.waitKey(1)
 
-    # cv2.putText(cv_image,str(it),(int(i[0]*width),int(i[1]*height)), font, 0.4,(0,255,0),1,cv2.LINE_AA)
-    # cv2.imshow('camera_w_pose',image)
+        # rospy.init_node('image_converter', anonymous=True)
+        # ic = image_converter()
 
-    # cv2.waitKey(1)
+        # try:
+        #  rospy.spin()
+        # except KeyboardInterrupt:
+        #  print("Shutting down")
+        # cv2.destroyAllWindows()
 
-    # rospy.init_node('image_converter', anonymous=True)
-    # ic = image_converter()
-
-    # try:
-    #  rospy.spin()
-    # except KeyboardInterrupt:
-    #  print("Shutting down")
-    # cv2.destroyAllWindows()
-
-try:
-    self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-except CvBridgeError as e:
-    print(e)
-in_process = False
+        try:
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+        except CvBridgeError as e:
+            print(e)
+        in_process = False
 
 
 # rospy.loginfo(time.time() - time1)
 
 def main(args):
+    rospy.init_node('image_converter')
     ic = image_converter()
-    rospy.init_node('image_converter', anonymous=True)
     try:
         rospy.spin()
     except KeyboardInterrupt:
