@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import print_function
+
+
+
+#from __future__ import print_function
 
 import roslib
 
-roslib.load_manifest('wm_dataset_preparation')
 import sys
 import rospy
 import datetime
@@ -13,17 +15,19 @@ import string
 import requests
 import json
 import rospy
-import cv2
+
 import base64
 import math
 import time
 from std_msgs.msg import String
 from std_msgs.msg import Bool
 from sensor_msgs.msg import Image, PointCloud
+from geometry_msgs.msg import Point32
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 from sensor_msgs.msg import Image, CameraInfo
-
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+import cv2
 
 in_process = False
 
