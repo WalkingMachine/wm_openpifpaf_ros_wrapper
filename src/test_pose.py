@@ -151,18 +151,18 @@ class image_converter:
                     it = 0
                     if j['score'] > score:
 
-
-
-
-                        pointList = []
+                        nparray = np.zeros(shape=(len(j['coordinates']), 3))
+                        index = 0
                         rospy.loginfo("good score")
-                        for point in j['coordinates']:
+                        for index in nparray.size(0):
+                            point = j['coordinates'][index]
 
                             try:
                                 if point[0] != 0 and point[1] != 0:
                                     pixel_x = min(width-1, max(0, int(point[0] * width)))
-                                    pixel_y= min(height-1, max(0, int(point[1] * height)))
+                                    pixel_y = min(height-1, max(0, int(point[1] * height)))
                                     pixel_depth = np.mean(depth_array[pixel_y-3:pixel_y+3, pixel_x-3:pixel_x+3])/1000
+
 
                                     if pixel_depth != 0:
                                         # get the IRL angles from the camera center to the point double
@@ -170,38 +170,34 @@ class image_converter:
                                         ay = -(pixel_y-height/2)*yratio # pixel to angle
 
                                         # Convert the angeles and distance to x y z coordinates
-                                        point = Point32()
-                                        point.z = pixel_depth * math.cos(ax) * math.cos(ay)  # ang to 3D point (rad to m)
-                                        point.x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
-                                        point.y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
+                                        z = pixel_depth * math.cos(ax) * math.cos(ay)  # ang to 3D point (rad to m)
+                                        x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
+                                        y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
 
-                                        pointList.append(point)
+                                        nparray[index] = [x, y, z]
 
                             except:
                                 rospy.logerr("Couldn't get point in z space")
 
-                        pointcloud = PointCloud()
-                        pointcloud.header = rgb_data.header
-                        if len(pointList):
-                            # Calculate the center
-                            meanX = 0
-                            meanY = 0
-                            meanZ = 0
-                            for point in pointList:
-                                meanX += point.x
-                                meanY += point.y
-                                meanZ += point.z
-                            meanX /= len(pointList)
-                            meanY /= len(pointList)
-                            meanZ /= len(pointList)
-
-                            # Eliminate extreme points
-                            for point in pointList:
-                                if abs(meanZ-point.z)**2 < 0.2:
-                                    pointcloud.points.append(point)
+                            index += 1
 
 
-                        self.pointcloud_pub.publish(pointcloud)
+                        # Remove empty lines and outliers from the array
+                        nparray = nparray[~(nparray == 0).all(1)]
+                        nparray = nparray[np.sum((nparray - np.mean(nparray, 0)) ** 2, 1)
+                                          < np.std(np.sum((nparray - np.mean(nparray, 0)) ** 2, 1)) * 2]
+
+                        rospy.loginfo(nparray)
+
+                        # If there is still data, we publish it.
+                        if len(nparray):
+                            pointcloud = PointCloud()
+                            pointcloud.header = rgb_data.header
+                            for i in nparray.size(0):
+                                point = Point32()
+                                point.x, point.y, point.z = nparray[i]
+                                pointcloud.points.append(point)
+                            self.pointcloud_pub.publish(pointcloud)
 
                         person_it = person_it + 1
                         # cv2.putText(cv_image,"Person " + str(person_it),(int(j['coordinates'][0][0]*width-60),int(j['coordinates'][0][1]*height-60)), font, 1,(0,0,255),1,cv2.LINE_AA)
