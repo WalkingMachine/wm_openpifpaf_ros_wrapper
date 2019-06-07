@@ -150,15 +150,15 @@ class image_converter:
                 for j in json_content:
                     it = 0
                     if j['score'] > score:
-
-                        nparray = np.zeros(shape=(len(j['coordinates']), 3))
-                        index = 0
                         rospy.loginfo("good score")
-                        for index in nparray.size(0):
+
+                        points_array = np.zeros(shape=(len(j['coordinates']), 3))
+                        for index in range(points_array.size/3):
                             point = j['coordinates'][index]
 
                             try:
                                 if point[0] != 0 and point[1] != 0:
+                                    # Get the polar position of each points
                                     pixel_x = min(width-1, max(0, int(point[0] * width)))
                                     pixel_y = min(height-1, max(0, int(point[1] * height)))
                                     pixel_depth = np.mean(depth_array[pixel_y-3:pixel_y+3, pixel_x-3:pixel_x+3])/1000
@@ -174,7 +174,7 @@ class image_converter:
                                         x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
                                         y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
 
-                                        nparray[index] = [x, y, z]
+                                        points_array[index] = [x, y, z]
 
                             except:
                                 rospy.logerr("Couldn't get point in z space")
@@ -183,19 +183,19 @@ class image_converter:
 
 
                         # Remove empty lines and outliers from the array
-                        nparray = nparray[~(nparray == 0).all(1)]
-                        nparray = nparray[np.sum((nparray - np.mean(nparray, 0)) ** 2, 1)
-                                          < np.std(np.sum((nparray - np.mean(nparray, 0)) ** 2, 1)) * 2]
+                        points_array = points_array[~(points_array == 0).all(1)]
+                        points_array = points_array[np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)
+                                          < np.std(np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)) * 2]
 
-                        rospy.loginfo(nparray)
+                        rospy.loginfo(points_array)
 
                         # If there is still data, we publish it.
-                        if len(nparray):
+                        if len(points_array):
                             pointcloud = PointCloud()
                             pointcloud.header = rgb_data.header
-                            for i in nparray.size(0):
+                            for i in range(points_array.size/3):
                                 point = Point32()
-                                point.x, point.y, point.z = nparray[i]
+                                point.x, point.y, point.z = points_array[i]
                                 pointcloud.points.append(point)
                             self.pointcloud_pub.publish(pointcloud)
 
