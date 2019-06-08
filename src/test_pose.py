@@ -21,6 +21,7 @@ import math
 import time
 from std_msgs.msg import String
 from std_msgs.msg import Bool
+from sara_msgs.msg import Poses, Pose, BodyPart
 from sensor_msgs.msg import Image, PointCloud
 from geometry_msgs.msg import Point32
 from cv_bridge import CvBridge, CvBridgeError
@@ -50,6 +51,7 @@ class image_converter:
     def __init__(self):
         self.image_pub = rospy.Publisher("/pose_detection/image", Image, queue_size=100)
         self.pointcloud_pub = rospy.Publisher("/pose_detection/pointclouds", PointCloud, queue_size=100)
+        self.poses_pub = rospy.Publisher("/pose_detection/poses", Poses, queue_size=100)
         in_process = False
         self.bridge = CvBridge()
         self.object = cv2.imread("sims.png", cv2.IMREAD_UNCHANGED)
@@ -131,6 +133,7 @@ class image_converter:
                 height, width, channels = cv_image.shape
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 person_it = 0
+                poses = Poses()
 
                 # get pixel to rad ratio
                 xratio = self._CAM_ANGLE_WIDTH / width;
@@ -152,8 +155,8 @@ class image_converter:
                     if j['score'] > score:
                         rospy.loginfo("good score")
 
-                        points_array = np.zeros(shape=(len(j['coordinates']), 3))
-                        for index in range(points_array.size/3):
+                        points_array = np.zeros(shape=(len(j['coordinates']), 4))
+                        for index in range(points_array.size/4):
                             point = j['coordinates'][index]
 
                             try:
@@ -174,7 +177,7 @@ class image_converter:
                                         x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
                                         y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
 
-                                        points_array[index] = [x, y, z]
+                                        points_array[index] = [x, y, z, index]
 
                             except:
                                 rospy.logerr("Couldn't get point in z space")
@@ -193,11 +196,20 @@ class image_converter:
                         if len(points_array):
                             pointcloud = PointCloud()
                             pointcloud.header = rgb_data.header
-                            for i in range(points_array.size/3):
+                            pose = Pose()
+                            for i in range(points_array.size/4):
                                 point = Point32()
-                                point.x, point.y, point.z = points_array[i]
+                                point.x, point.y, point.z = points_array[i, 0:3]
                                 pointcloud.points.append(point)
+
+                                part = BodyPart()
+                                part.position = point
+                                part.id = points_array[i, 3]
+                                pose.parts.append(part)
+
                             self.pointcloud_pub.publish(pointcloud)
+                            poses.poses.append(pose)
+
 
                         person_it = person_it + 1
                         # cv2.putText(cv_image,"Person " + str(person_it),(int(j['coordinates'][0][0]*width-60),int(j['coordinates'][0][1]*height-60)), font, 1,(0,0,255),1,cv2.LINE_AA)
@@ -336,6 +348,7 @@ class image_converter:
                 except CvBridgeError as e:
                     print(e)
 
+                self.poses_pub.publish(poses)
                 in_process = False
 
 
