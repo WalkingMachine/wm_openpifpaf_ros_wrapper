@@ -156,6 +156,7 @@ class image_converter:
                         rospy.loginfo("good score")
 
                         points_array = np.zeros(shape=(len(j['coordinates']), 4))
+
                         for index in range(points_array.size/4):
                             point = j['coordinates'][index]
 
@@ -165,19 +166,23 @@ class image_converter:
                                     pixel_x = min(width-1, max(0, int(point[0] * width)))
                                     pixel_y = min(height-1, max(0, int(point[1] * height)))
                                     pixel_depth = np.mean(depth_array[pixel_y-3:pixel_y+3, pixel_x-3:pixel_x+3])/1000
+                                    if not np.isnan(pixel_depth):
 
+                                        # print("pixel_x :"+str(pixel_x))
+                                        # print("pixel_y :"+str(pixel_y))
+                                        # print("pixel_depth :"+str(pixel_depth))
 
-                                    if pixel_depth != 0:
-                                        # get the IRL angles from the camera center to the point double
-                                        ax = -(pixel_x-width/2)*xratio # pixel to angle
-                                        ay = -(pixel_y-height/2)*yratio # pixel to angle
+                                        if pixel_depth != 0:
+                                            # get the IRL angles from the camera center to the point double
+                                            ax = -(pixel_x-width/2)*xratio # pixel to angle
+                                            ay = -(pixel_y-height/2)*yratio # pixel to angle
 
-                                        # Convert the angeles and distance to x y z coordinates
-                                        z = pixel_depth * math.cos(ax) * math.cos(ay)  # ang to 3D point (rad to m)
-                                        x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
-                                        y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
+                                            # Convert the angeles and distance to x y z coordinates
+                                            z = pixel_depth * math.cos(ax) * math.cos(ay)  # ang to 3D point (rad to m)
+                                            x = -pixel_depth * math.sin(ax)  # ang to 3D point (rad to m)
+                                            y = -pixel_depth * math.sin(ay)  # ang to 3D point (rad to m)
 
-                                        points_array[index] = [x, y, z, index]
+                                            points_array[index] = [x, y, z, index]
 
                             except:
                                 rospy.logerr("Couldn't get point in z space")
@@ -185,12 +190,13 @@ class image_converter:
                             index += 1
 
 
+                        # rospy.loginfo(points_array)
                         # Remove empty lines and outliers from the array
                         points_array = points_array[~(points_array == 0).all(1)]
                         points_array = points_array[np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)
                                           < np.std(np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)) * 2]
 
-                        rospy.loginfo(points_array)
+                        # rospy.loginfo(points_array)
 
                         # If there is still data, we publish it.
                         if len(points_array):
@@ -354,8 +360,6 @@ class image_converter:
 
             else:
                 rospy.loginfo("skipping frame")
-        else:
-                rospy.loginfo("too late")
 
         # DEBOUT / ASSIS / COUCHE
         # Debout :
