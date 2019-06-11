@@ -134,6 +134,7 @@ class image_converter:
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 person_it = 0
                 poses = Poses()
+                poses.header = rgb_data.header
 
                 # get pixel to rad ratio
                 xratio = self._CAM_ANGLE_WIDTH / width;
