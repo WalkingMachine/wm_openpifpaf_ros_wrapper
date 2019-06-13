@@ -19,14 +19,14 @@ import rospy
 import base64
 import math
 import time
-from std_msgs.msg import String
-from std_msgs.msg import Bool
 from sara_msgs.msg import Poses, Pose, BodyPart
 from sensor_msgs.msg import Image, PointCloud
-from geometry_msgs.msg import Point32
+from geometry_msgs.msg import Point32, PointStamped
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 from sensor_msgs.msg import Image, CameraInfo
+from tf import TransformListener
+import copy
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 
@@ -63,10 +63,12 @@ class image_converter:
         self._CAM_ANGLE_WIDTH = rospy.get_param("camera_angle_width", 1.012290966)
         self._CAM_ANGLE_HEIGHT = rospy.get_param("camera_angle_height", 0.785398163397)
 
+        self.frame = rospy.get_param("output_frame", "/map")
 
+        self.listener = TransformListener()
 
-        self.image_sub = message_filters.Subscriber("camera/rgb/image_raw", Image, queue_size=100)
-        self.depth_sub = message_filters.Subscriber("camera/depth/image_raw", Image, queue_size=100)
+        self.image_sub = message_filters.Subscriber("head_xtion/rgb/image_raw", Image, queue_size=100)
+        self.depth_sub = message_filters.Subscriber("head_xtion/depth/image_raw", Image, queue_size=100)
 
         self.ts = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 100, 0.1)
         self.ts.registerCallback(self.callback)
@@ -134,7 +136,8 @@ class image_converter:
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 person_it = 0
                 poses = Poses()
-                poses.header = rgb_data.header
+                poses.header.frame_id = self.frame
+                poses.header.stamp = rgb_data.header.stamp
 
                 # get pixel to rad ratio
                 xratio = self._CAM_ANGLE_WIDTH / width;
@@ -195,18 +198,33 @@ class image_converter:
                         # Remove empty lines and outliers from the array
                         points_array = points_array[~(points_array == 0).all(1)]
                         points_array = points_array[np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)
-                                          < np.std(np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)) * 2]
+                                          < np.std(np.sum((points_array - np.mean(points_array, 0)) ** 2, 1)) * 1.5]
 
                         # rospy.loginfo(points_array)
 
+                        # self.listener.waitForTransform(rgb_data.header.frame_id, self.frame, rospy.Time(0), rospy.Duration(10))
                         # If there is still data, we publish it.
                         if len(points_array):
                             pointcloud = PointCloud()
-                            pointcloud.header = rgb_data.header
+                            pointcloud.header.stamp = rgb_data.header.stamp
+                            pointcloud.header.frame_id = self.frame
                             pose = Pose()
                             for i in range(points_array.size/4):
+                                pointStamped = PointStamped()
+                                pointStamped.header.stamp = rgb_data.header.stamp
+                                pointStamped.header.frame_id = rgb_data.header.frame_id
+                                pointStamped.point.x, \
+                                pointStamped.point.y, \
+                                pointStamped.point.z = points_array[i, 0:3]
+                                try:
+                                    pointStamped = self.listener.transformPoint(self.frame, pointStamped)
+                                except:
+                                    continue
+
                                 point = Point32()
-                                point.x, point.y, point.z = points_array[i, 0:3]
+                                point.x, point.y, point.z = \
+                                    pointStamped.point.x, pointStamped.point.y, pointStamped.point.z
+
                                 pointcloud.points.append(point)
 
                                 part = BodyPart()
