@@ -232,10 +232,35 @@ class image_converter:
                                 part.id = points_array[i, 3]
                                 pose.parts.append(part)
 
-                            if j['coordinates'][9][1] < j['coordinates'][0][1] and j['coordinates'][9][1] > 0:
-                                pose.left_arm_up = True
-                            if j['coordinates'][10][1] < j['coordinates'][0][1] and j['coordinates'][10][1] > 0:
-                                pose.right_arm_up = True
+                            if j['coordinates'][9][1] > 0:
+                                if j['coordinates'][9][1] < j['coordinates'][0][1] and j['coordinates'][0][1] > 0:
+                                    pose.left_arm_up = True
+                                elif j['coordinates'][9][1] < j['coordinates'][1][1] and j['coordinates'][1][1] > 0:
+                                    pose.left_arm_up = True
+                                elif j['coordinates'][9][1] < j['coordinates'][2][1] and j['coordinates'][2][1] > 0:
+                                    pose.left_arm_up = True
+                                elif j['coordinates'][9][1] < j['coordinates'][3][1] and j['coordinates'][3][1] > 0:
+                                    pose.left_arm_up = True
+                                elif j['coordinates'][9][1] < j['coordinates'][4][1] and j['coordinates'][4][1] > 0:
+                                    pose.left_arm_up = True
+                            else:
+                                if j['coordinates'][7][1] < j['coordinates'][5][1] and j['coordinates'][5][1] > 0 and j['coordinates'][7][1] > 0:
+                                    pose.left_arm_up = True
+
+                            if j['coordinates'][10][1] > 0:
+                                if j['coordinates'][10][1] < j['coordinates'][0][1] and j['coordinates'][0][1] > 0:
+                                    pose.right_arm_up = True
+                                elif j['coordinates'][10][1] < j['coordinates'][1][1] and j['coordinates'][1][1] > 0:
+                                    pose.right_arm_up = True
+                                elif j['coordinates'][10][1] < j['coordinates'][2][1] and j['coordinates'][2][1] > 0:
+                                    pose.right_arm_up = True
+                                elif j['coordinates'][10][1] < j['coordinates'][3][1] and j['coordinates'][3][1] > 0:
+                                    pose.right_arm_up = True
+                                elif j['coordinates'][10][1] < j['coordinates'][4][1] and j['coordinates'][4][1] > 0:
+                                    pose.right_arm_up = True
+                            else:
+                                if j['coordinates'][8][1] < j['coordinates'][6][1] and j['coordinates'][6][1] > 0 and j['coordinates'][8][1] > 0:
+                                    pose.right_arm_up = True
 
                             angleBrasGauche = getAngle((j['coordinates'][5][1], j['coordinates'][5][0]),
                                                        (j['coordinates'][7][1], j['coordinates'][7][0]),
@@ -251,15 +276,15 @@ class image_converter:
                                                         (j['coordinates'][8][1], j['coordinates'][8][0]))
 
                             if not angleBrasGauche == 999:
-                                if angleBrasGauche > 120 and angleEpauleGauche > 25:
+                                if angleBrasGauche > 120 and angleEpauleGauche > 20:
                                     pose.left_arm_point = True
-                                elif angleEpauleGauche <= 25:
+                                elif angleEpauleGauche <= 20:
                                     pose.left_arm_down = True
 
                             if not angleBrasDroit == 999:
-                                if angleBrasDroit > 120 and angleEpauleDroit > 25:
+                                if angleBrasDroit > 120 and angleEpauleDroit > 20:
                                     pose.right_arm_point = True
-                                elif angleEpauleDroit <= 25:
+                                elif angleEpauleDroit <= 20:
                                     pose.right_arm_down = True
 
                             self.pointcloud_pub.publish(pointcloud)
