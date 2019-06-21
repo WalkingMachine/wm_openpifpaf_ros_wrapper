@@ -21,12 +21,12 @@ import math
 import time
 from sara_msgs.msg import Poses, Pose, BodyPart
 from sensor_msgs.msg import Image, PointCloud
-from geometry_msgs.msg import Point32, PointStamped
+from geometry_msgs.msg import Point32, PointStamped,Point
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 from sensor_msgs.msg import Image, CameraInfo
 from tf import TransformListener
-from visualization_msgs.msg import MarkerArray, Marker, Point
+from visualization_msgs.msg import MarkerArray, Marker
 import copy
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
@@ -364,7 +364,7 @@ class image_converter:
                                 second_line_point.z = 0.0
                                 marker.points.append(second_line_point)
 
-                                lineArray.append(marker)
+                                lineArray.markers.append(marker)
 
                         #============== END PUBLISH RVIZ MARKERS ==============#
                         # print(i)
