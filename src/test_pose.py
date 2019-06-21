@@ -70,12 +70,12 @@ class image_converter:
         self.image_sub = message_filters.Subscriber("head_xtion/rgb/image_raw", Image, queue_size=100)
         self.depth_sub = message_filters.Subscriber("head_xtion/depth/image_raw", Image, queue_size=100)
 
-        self.ts = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 100, 0.1)
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 100, 0.2)
         self.ts.registerCallback(self.callback)
         rospy.loginfo("pifpaf ready")
 
     def callback(self, rgb_data, depth_data):
-        if rospy.Time.now() - rgb_data.header.stamp < rospy.Duration(0.1):
+        if rospy.Time.now() - rgb_data.header.stamp < rospy.Duration(0.3):
             global in_process
             if not in_process:
                 in_process = True
@@ -219,6 +219,7 @@ class image_converter:
                                 try:
                                     pointStamped = self.listener.transformPoint(self.frame, pointStamped)
                                 except:
+                                    print("impossible de passer le points en 3D")
                                     continue
 
                                 point = Point32()
@@ -434,6 +435,8 @@ class image_converter:
 
             else:
                 rospy.loginfo("skipping frame")
+        else:
+            rospy.loginfo("skipping frame")
 
         # DEBOUT / ASSIS / COUCHE
         # Debout :
