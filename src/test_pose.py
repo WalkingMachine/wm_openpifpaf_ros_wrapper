@@ -156,7 +156,7 @@ class image_converter:
                 #       cv2.circle(cv_image,(int(i[0]*width),int(i[1]*height)), 4, (0,0,255), -1)
                 #       cv2.putText(cv_image,str(it),(int(i[0]*width),int(i[1]*height)), font, 0.4,(0,255,0),1,cv2.LINE_AA)
                 rospy.loginfo("***************************************")
-                LineArray = MarkerArray()
+                lineArray = MarkerArray()
                 lineMarker = Marker()
                 lineMarker.header.frame_id = "/my_fixed_frame"
                 lineMarker.type = Marker.LINE_STRIP
@@ -345,22 +345,26 @@ class image_converter:
                         #==============   PUBLISH RVIZ MARKERS   ==============#
                         # Links : 0-1, 0-2, 1-3, 2-4, 0-5, 0-6, 5-7, 7-9, 6-8, 8-10
                         #         5-11, 6-12, 11-12, 11-13, 13-15, 12-14, 14-16
-                        if j['coordinates'][0][1] > 0 and j['coordinates'][1][1] > 0:
-                            marker = copy.deepcopy(lineMarker)
-                                # marker line points
-                            marker.points = []
-                            # first point
-                            first_line_point = Point()
-                            first_line_point.x = 0.0
-                            first_line_point.y = 0.0
-                            first_line_point.z = 0.0
-                            marker.points.append(first_line_point)
-                            # second point
-                            second_line_point = Point()
-                            second_line_point.x = 1.0
-                            second_line_point.y = 1.0
-                            second_line_point.z = 0.0
-                            marker.points.append(second_line_point)
+                        links = [[0,1],[0,2],[1,3],[2,4],[0,5],[0,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]]
+                        for i in links:
+                            if j['coordinates'][i[0]][1] > 0 and j['coordinates'][i[1]][1] > 0:
+                                marker = copy.deepcopy(lineMarker)
+                                    # marker line points
+                                marker.points = []
+                                # first point
+                                first_line_point = Point()
+                                first_line_point.x = j['coordinates'][i[0]][1]
+                                first_line_point.y = j['coordinates'][i[0]][2]
+                                first_line_point.z = 0.0
+                                marker.points.append(first_line_point)
+                                # second point
+                                second_line_point = Point()
+                                second_line_point.x = j['coordinates'][i[1]][1]
+                                second_line_point.y = j['coordinates'][i[1]][2]
+                                second_line_point.z = 0.0
+                                marker.points.append(second_line_point)
+
+                                lineArray.append(marker)
 
                         #============== END PUBLISH RVIZ MARKERS ==============#
                         # print(i)
@@ -475,6 +479,7 @@ class image_converter:
                 except CvBridgeError as e:
                     print(e)
 
+                self.marker_pub.publish(lineArray)
                 self.poses_pub.publish(poses)
                 in_process = False
 
