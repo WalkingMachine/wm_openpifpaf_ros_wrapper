@@ -158,7 +158,7 @@ class image_converter:
                 rospy.loginfo("***************************************")
                 lineArray = MarkerArray()
                 lineMarker = Marker()
-                lineMarker.header.frame_id = "/my_fixed_frame"
+                lineMarker.header.frame_id = "/map"
                 lineMarker.type = Marker.LINE_STRIP
                 lineMarker.action = Marker.ADD
                 # marker scale
