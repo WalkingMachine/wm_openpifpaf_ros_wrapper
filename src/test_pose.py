@@ -26,6 +26,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 from sensor_msgs.msg import Image, CameraInfo
 from tf import TransformListener
+from visualization_msgs.msg import MarkerArray, Marker, Point
 import copy
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
@@ -49,6 +50,7 @@ def getAngle(a, b, c):
 
 class image_converter:
     def __init__(self):
+        self.marker_pub = rospy.Publisher('/pose_detection/pose_line', MarkerArray, queue_size=1)
         self.image_pub = rospy.Publisher("/pose_detection/image", Image, queue_size=100)
         self.pointcloud_pub = rospy.Publisher("/pose_detection/pointclouds", PointCloud, queue_size=100)
         self.poses_pub = rospy.Publisher("/pose_detection/poses", Poses, queue_size=100)
@@ -140,8 +142,8 @@ class image_converter:
                 poses.header.stamp = rgb_data.header.stamp
 
                 # get pixel to rad ratio
-                xratio = self._CAM_ANGLE_WIDTH / width;
-                yratio = self._CAM_ANGLE_HEIGHT / height;
+                xratio = self._CAM_ANGLE_WIDTH / width
+                yratio = self._CAM_ANGLE_HEIGHT / height
 
 
                 #   it = 0
@@ -154,6 +156,30 @@ class image_converter:
                 #       cv2.circle(cv_image,(int(i[0]*width),int(i[1]*height)), 4, (0,0,255), -1)
                 #       cv2.putText(cv_image,str(it),(int(i[0]*width),int(i[1]*height)), font, 0.4,(0,255,0),1,cv2.LINE_AA)
                 rospy.loginfo("***************************************")
+                LineArray = MarkerArray()
+                lineMarker = Marker()
+                lineMarker.header.frame_id = "/my_fixed_frame"
+                lineMarker.type = Marker.LINE_STRIP
+                lineMarker.action = Marker.ADD
+                # marker scale
+                lineMarker.scale.x = 0.03
+                lineMarker.scale.y = 0.03
+                lineMarker.scale.z = 0.03
+                # marker color
+                lineMarker.color.a = 1.0
+                lineMarker.color.r = 1.0
+                lineMarker.color.g = 1.0
+                lineMarker.color.b = 0.0
+                # marker orientaiton
+                lineMarker.pose.orientation.x = 0.0
+                lineMarker.pose.orientation.y = 0.0
+                lineMarker.pose.orientation.z = 0.0
+                lineMarker.pose.orientation.w = 1.0
+                # marker position
+                lineMarker.pose.position.x = 0.0
+                lineMarker.pose.position.y = 0.0
+                lineMarker.pose.position.z = 0.0               
+
                 for j in json_content:
                     it = 0
                     if j['score'] > score:
@@ -316,6 +342,27 @@ class image_converter:
                         # [0] = X
                         # [1] = Y
 
+                        #==============   PUBLISH RVIZ MARKERS   ==============#
+                        # Links : 0-1, 0-2, 1-3, 2-4, 0-5, 0-6, 5-7, 7-9, 6-8, 8-10
+                        #         5-11, 6-12, 11-12, 11-13, 13-15, 12-14, 14-16
+                        if j['coordinates'][0][1] > 0 and j['coordinates'][1][1] > 0:
+                            marker = copy.deepcopy(lineMarker)
+                                # marker line points
+                            marker.points = []
+                            # first point
+                            first_line_point = Point()
+                            first_line_point.x = 0.0
+                            first_line_point.y = 0.0
+                            first_line_point.z = 0.0
+                            marker.points.append(first_line_point)
+                            # second point
+                            second_line_point = Point()
+                            second_line_point.x = 1.0
+                            second_line_point.y = 1.0
+                            second_line_point.z = 0.0
+                            marker.points.append(second_line_point)
+
+                        #============== END PUBLISH RVIZ MARKERS ==============#
                         # print(i)
                         rospy.loginfo("-------------------------------")
                         rospy.loginfo("Personne " + str(person_it))
