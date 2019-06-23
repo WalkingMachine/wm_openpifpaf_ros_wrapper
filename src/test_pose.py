@@ -21,11 +21,12 @@ import math
 import time
 from sara_msgs.msg import Poses, Pose, BodyPart
 from sensor_msgs.msg import Image, PointCloud
-from geometry_msgs.msg import Point32, PointStamped
+from geometry_msgs.msg import Point32, PointStamped, Point
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 from sensor_msgs.msg import Image, CameraInfo
 from tf import TransformListener
+from visualization_msgs.msg import MarkerArray, Marker
 import copy
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
@@ -49,6 +50,7 @@ def getAngle(a, b, c):
 
 class image_converter:
     def __init__(self):
+        self.marker_pub = rospy.Publisher('/pose_detection/pose_line', MarkerArray, queue_size=1)
         self.image_pub = rospy.Publisher("/pose_detection/image", Image, queue_size=100)
         self.pointcloud_pub = rospy.Publisher("/pose_detection/pointclouds", PointCloud, queue_size=100)
         self.poses_pub = rospy.Publisher("/pose_detection/poses", Poses, queue_size=100)
@@ -154,6 +156,31 @@ class image_converter:
                 #       cv2.circle(cv_image,(int(i[0]*width),int(i[1]*height)), 4, (0,0,255), -1)
                 #       cv2.putText(cv_image,str(it),(int(i[0]*width),int(i[1]*height)), font, 0.4,(0,255,0),1,cv2.LINE_AA)
                 rospy.loginfo("***************************************")
+
+                lineArray = MarkerArray()
+                lineMarker = Marker()
+                lineMarker.header.frame_id = "/map"
+                lineMarker.type = Marker.LINE_STRIP
+                lineMarker.action = Marker.ADD
+                # marker scale
+                lineMarker.scale.x = 0.03
+                lineMarker.scale.y = 0.03
+                lineMarker.scale.z = 0.03
+                # marker color
+                lineMarker.color.a = 1.0
+                lineMarker.color.r = 1.0
+                lineMarker.color.g = 1.0
+                lineMarker.color.b = 0.0
+                # marker orientaiton
+                lineMarker.pose.orientation.x = 0.0
+                lineMarker.pose.orientation.y = 0.0
+                lineMarker.pose.orientation.z = 0.0
+                lineMarker.pose.orientation.w = 1.0
+                # marker position
+                lineMarker.pose.position.x = 0.0
+                lineMarker.pose.position.y = 0.0
+                lineMarker.pose.position.z = 0.0
+
                 for j in json_content:
                     it = 0
                     if j['score'] > score:
@@ -316,6 +343,61 @@ class image_converter:
                         # [0] = X
                         # [1] = Y
 
+                        # ==============   PUBLISH RVIZ MARKERS   ==============#
+                        # Links : 0-1, 0-2, 1-3, 2-4, 0-5, 0-6, 5-7, 7-9, 6-8, 8-10
+                        #         5-11, 6-12, 11-12, 11-13, 13-15, 12-14, 14-16
+
+                        id = 0
+                        if len(poses.poses)>0:
+                            # links = [[0, 1], [0, 2], [1, 3], [2, 4], [0, 5], [0, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+                            #         [5, 11], [6, 12], [11, 12], [11, 13], [13, 15], [12, 14], [14, 16]]
+                            links = [[5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+                                    [5, 11], [6, 12], [11, 12], [11, 13], [13, 15], [12, 14], [14, 16]]
+                            for i in links:
+                                if j['coordinates'][i[0]][1] > 0 and j['coordinates'][i[1]][1] > 0:
+                                    marker = copy.deepcopy(lineMarker)
+                                    # marker line points
+                                    marker.points = []
+
+                                    # first point
+                                    first_line_point = Point()
+                                    first_line_point.x = 0
+                                    first_line_point.y = 0
+                                    first_line_point.z = 0
+                                    for part in poses.poses[0].parts:
+                                        if part.id == i[0]:
+                                            first_line_point.x = part.position.x
+                                            first_line_point.y = part.position.y
+                                            first_line_point.z = part.position.z
+                                            marker.points.append(first_line_point)
+
+                                    # second point
+                                    second_line_point = Point()
+                                    second_line_point.x = 0
+                                    second_line_point.y = 0
+                                    second_line_point.z = 0
+                                    for part in poses.poses[0].parts:
+                                        if part.id == i[1]:
+                                            second_line_point.x = part.position.x
+                                            second_line_point.y = part.position.y
+                                            second_line_point.z = part.position.z
+                                            marker.points.append(second_line_point)
+
+                                    marker.id = id
+
+                                    if i == [5,7] or i == [7,9] or i == [11,13] or i == [13,15]:
+                                        marker.color.r = 1.0
+                                        marker.color.g = 0.0
+                                        marker.color.b = 0.0
+                                    elif i == [6,8] or i == [8,10] or i == [12,14] or i == [14,16]:
+                                        marker.color.r = 0.0
+                                        marker.color.g = 0.0
+                                        marker.color.b = 1.0
+
+                                    lineArray.markers.append(marker)
+                                id = id + 1
+                        # ============== END PUBLISH RVIZ MARKERS ==============#
+
                         # print(i)
                         rospy.loginfo("-------------------------------")
                         rospy.loginfo("Personne " + str(person_it))
@@ -428,6 +510,7 @@ class image_converter:
                 except CvBridgeError as e:
                     print(e)
 
+                self.marker_pub.publish(lineArray)
                 self.poses_pub.publish(poses)
                 in_process = False
 
